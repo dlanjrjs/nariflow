@@ -124,12 +124,18 @@ class GradientTape():
             for j in i[1]:
                 j.grad = None
 
-    def jacobian(self, tapes = None, var = None, var_return = 'Variable'):
+    def jacobian(self, target = None, tapes = None, var = None, var_return = 'Variable'):
         if tapes is None:
-            tapes = self.gradient_tape
+            tapes = self.gradient_tape.copy()
         tapes = dict(sorted(tapes.items(), key=lambda x: x[1][2]))
-        tapes = dict(reversed(tapes.items()))
 
+        if target is not None:
+            target_ind = [i for i, j in enumerate([i == target for i in list(tapes)]) if j][0]
+            tapes_dict = dict()
+            [tapes_dict.update(i) for i in [{i[0]: i[1]} for i in tapes.items()][0:target_ind + 1]]
+            tapes = dict(reversed(tapes_dict.items()))
+        else :
+            tapes = dict(reversed(tapes.items()))
         def as_array(x):
             if np.isscalar(x):
                 return np.array(x)
