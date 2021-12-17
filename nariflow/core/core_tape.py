@@ -133,15 +133,21 @@ class GradientTape():
         def as_array(x):
             if np.isscalar(x):
                 return np.array(x)
+            if isinstance(x, type(np.array([]))):
+                if len(x.shape) == 0:
+                    return np.array([[x]])
             return x
 
         def as_variable(x):
             if isinstance(x, Variable):
                 return x
             return Variable(x)
-
-        i_max = list(tapes.keys())[-1].data.shape[0]
-        j_max = list(tapes.keys())[-1].data.shape[1]
+        if len(list(tapes.keys())[0].data.shape) >= 2:
+            i_max = list(tapes.keys())[0].data.shape[0]
+            j_max = list(tapes.keys())[0].data.shape[1]
+        else :
+            i_max = 1
+            j_max = 1
 
         jacobian_dict = dict()
         for jacobian_iter_i in range(i_max):
@@ -162,6 +168,7 @@ class GradientTape():
 
                     if generation == init_generation:
                         for j in outputs:
+                            j.data = as_array(j.data)
                             grad_matrix = np.zeros_like(j.data)
                             grad_matrix[jacobian_iter_i][jacobian_iter_j] = 1
                             j.grad = Variable(grad_matrix)
