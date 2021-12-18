@@ -18,5 +18,6 @@ from .functions import activation
 from .functions import loss
 from . import optimizer
 from .models import Model
+from . import utils
 
 setup_variable()
