@@ -1,5 +1,6 @@
 from ..core.elementary_function import Parameter
 from .initializer import initializer_loader
+import numpy as np
 import weakref
 
 class Layer():
@@ -39,6 +40,34 @@ class Layer():
                 yield from obj.params()
             else:
                 yield obj
+
+    def _flatten_params(self, weight_dict, mode, parent_key=''):
+        for name in self._params:
+            obj = self.__dict__[name]
+            if len(parent_key) > 0:
+                key = parent_key + '/' + name
+            else:
+                key = name
+
+            if isinstance(obj, Layer):
+                obj._flatten_params(weight_dict, mode, key)
+            else:
+                if mode == 'save':
+                    weight_dict[key] = obj.data
+                if mode == 'load':
+                    weight_dict[key] = obj
+
+    def save_weigths(self, path):
+        weight_dict = dict()
+        self._flatten_params(weight_dict, 'save')
+        np.savez_compressed(path, **weight_dict)
+
+    def load_weights(self, path):
+        weight_file = np.load(path)
+        weight_dict = dict()
+        self._flatten_params(weight_dict, 'load')
+        for key, param in weight_dict.items():
+            param.data = weight_file[key]
 
     def resetgrads(self):
         for param in self.params():

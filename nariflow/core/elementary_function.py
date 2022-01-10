@@ -261,3 +261,13 @@ class Cos(Function):
 
 def cos(x):
     return Cos()(x)
+
+class StopGradient(Function):
+    def forward(self, x):
+        return x
+
+    def backward(self, gy):
+        return 0
+
+def stop_gradient(x):
+    return StopGradient()(x)

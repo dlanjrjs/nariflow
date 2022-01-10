@@ -25,14 +25,17 @@ pip install git+https://github.com/dlanjrjs/nariflow.git
 
 # 구현된 기능
 
-1. Function
+1. Core
+- Jacobian
+- StopGradient
+2. Function
 - Activation : sigmoid, relu, softmax
 - Loss : Mean Squared Error, Categorical Crossentropy
-2. Optimizer
+3. Optimizer
 - Adagrad
 - Stochastic Gradient Descent
 - Adam
-3. Layer
+4. Layer
 - Linear(텐서플로우 Dense)
 
 # 앞으로 구현할 기능

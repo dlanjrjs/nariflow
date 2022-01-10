@@ -77,11 +77,19 @@ class GradientTape():
         self.gradient_tape = GRADIENT_TAPE
         del GRADIENT_TAPE
 
-    def CalcGradient(self, tapes = None, loss = None):
+    def CalcGradient(self, target = None, tapes = None):
         if tapes is None:
             tapes = self.gradient_tape
         tapes = dict(sorted(tapes.items(), key = lambda x : x[1][2]))
-        tapes = dict(reversed(tapes.items()))
+
+        if target is not None:
+            target_ind = [i for i, j in enumerate([i == target for i in list(tapes)]) if j][0]
+            tapes_dict = dict()
+            [tapes_dict.update(i) for i in [{i[0]: i[1]} for i in tapes.items()][0:target_ind + 1]]
+            tapes = dict(reversed(tapes_dict.items()))
+        else :
+            tapes = dict(reversed(tapes.items()))
+
         def as_array(x):
             if np.isscalar(x):
                 return np.array(x)
@@ -105,15 +113,9 @@ class GradientTape():
                 outputs = [outputs]
 
             if generation == init_generation:
-                if loss is not None:
-                    for j in loss:
-                        j.grad = Variable(np.ones_like(j.data))
-                    outputs = loss
-
-                else:
-                    for j in outputs:
-                        j.grad = Variable(np.ones_like(j.data))
-            gy_list = [output.grad if output.grad is not None else np.ones_like(output.data) for output in outputs]
+                for j in outputs:
+                    j.grad = Variable(np.ones_like(j.data))
+            gy_list = [output.grad for output in outputs]
             func.input_list = inputs
             gx_list = func.backward(*gy_list)
             if not isinstance(gx_list, tuple):
