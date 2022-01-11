@@ -45,7 +45,9 @@ class Function():
         for output in output_list:
             output.set_generation(generation)
         self.generation = generation
-        if 'GRADIENT_TAPE' in globals():
+
+        if 'GRADIENT_NUM' in globals():
+            GRADIENT_NUM = globals()['GRADIENT_NUM']
             self.making_gradient_tape(output_list, inputs)
 
         if len(output_list) > 1:
@@ -55,7 +57,9 @@ class Function():
 
     def making_gradient_tape(self, output, inputs):
         for i in output:
-            GRADIENT_TAPE[i] = (self, inputs, self.generation)
+            GRADIENT_NUM = globals()['GRADIENT_NUM']
+            for j in range(GRADIENT_NUM + 1):
+                globals()[f'GRADIENT_TAPE_{j}'][i] = (self, inputs, self.generation)
 
     def forward(self, x_list):
         raise NotImplementedError()
@@ -66,18 +70,26 @@ class Function():
 class GradientTape():
 
     def __init__(self):
-        global GRADIENT_TAPE
-        GRADIENT_TAPE = dict()
+        if 'GRADIENT_NUM' not in globals():
+            globals()['GRADIENT_NUM'] = 0
+        else :
+            globals()['GRADIENT_NUM'] += 1
+        GRADIENT_NUM = globals()['GRADIENT_NUM']
+        globals()[f'GRADIENT_TAPE_{GRADIENT_NUM}'] = dict()
+        self.gradient_tape = globals()[f'GRADIENT_TAPE_{GRADIENT_NUM}']
+        self.gradient_num = globals()['GRADIENT_NUM']
 
     def __enter__(self):
         return self
 
     def __exit__(self, type, value, traceback):
-        global GRADIENT_TAPE
-        self.gradient_tape = GRADIENT_TAPE
-        del GRADIENT_TAPE
+        if f'GRADIENT_TAPE_{self.gradient_num}' in globals():
+            del globals()[f'GRADIENT_TAPE_{self.gradient_num}']
+        if 'GRADIENT_NUM' in globals():
+            del globals()['GRADIENT_NUM']
+        return
 
-    def CalcGradient(self, target = None, tapes = None):
+    def CalcGradient(self, target = None, tapes = None, resetgrad = False):
         if tapes is None:
             tapes = self.gradient_tape
         tapes = dict(sorted(tapes.items(), key = lambda x : x[1][2]))
@@ -100,21 +112,19 @@ class GradientTape():
                 return x
             return Variable(x)
 
-        for i, tape in enumerate(tapes.items()):
+        for tape in tapes.items():
             outputs = tape[0]
             generation = tape[1][2]
             inputs = tape[1][1]
             func = tape[1][0]
 
-            if i == 0:
-                init_generation = generation.copy()
-
             if isinstance(outputs, Variable):
                 outputs = [outputs]
 
-            if generation == init_generation:
-                for j in outputs:
+            for j in outputs:
+                if j.grad is None:
                     j.grad = Variable(np.ones_like(j.data))
+
             gy_list = [output.grad for output in outputs]
             func.input_list = inputs
             gx_list = func.backward(*gy_list)
@@ -126,6 +136,8 @@ class GradientTape():
                     x.grad = gx
                 else:
                     x.grad = x.grad + gx
+            if resetgrad:
+                self.resetgrads()
 
     def resetgrads(self):
         for i in list(self.gradient_tape.keys()):
@@ -171,20 +183,18 @@ class GradientTape():
             jacobian_dict_j = dict()
             for jacobian_iter_j in range(j_max):
                 temp_dict = dict()
-                for i, tape in enumerate(tapes.items()):
+                for tape in tapes.items():
                     outputs = tape[0]
                     generation = tape[1][2]
                     inputs = tape[1][1]
                     func = tape[1][0]
 
-                    if i == 0:
-                        init_generation = generation.copy()
 
                     if isinstance(outputs, Variable):
                         outputs = [outputs]
 
-                    if generation == init_generation:
-                        for j in outputs:
+                    for j in outputs:
+                        if j.grad is None:
                             j.data = as_array(j.data)
                             grad_matrix = np.zeros_like(j.data)
                             grad_matrix[jacobian_iter_i][jacobian_iter_j] = 1
