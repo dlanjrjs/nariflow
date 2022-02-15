@@ -67,12 +67,13 @@ class Function():
     def backward(self, gy_list):
         raise NotImplementedError()
 
+
 class GradientTape():
 
     def __init__(self):
         if 'GRADIENT_NUM' not in globals():
             globals()['GRADIENT_NUM'] = 0
-        else :
+        else:
             globals()['GRADIENT_NUM'] += 1
         GRADIENT_NUM = globals()['GRADIENT_NUM']
         globals()[f'GRADIENT_TAPE_{GRADIENT_NUM}'] = dict()
@@ -89,17 +90,37 @@ class GradientTape():
             del globals()['GRADIENT_NUM']
         return
 
-    def CalcGradient(self, target = None, tapes = None, resetgrad = False):
+    def unlist_inputs(self, x):
+        input_list = list()
+        if len(np.array(x.data).shape) == 0:
+            return x
+        else:
+            for inp in x.data:
+                if isinstance(inp, Variable):
+                    input_list.append(inp)
+                else:
+                    return x
+            return input_list
+
+    def unlist(self, x):
+        inputs = [self.unlist_inputs(i) for i in x]
+        if inputs is not None:
+            if isinstance(inputs[0], list):
+                inputs = sum(inputs, [])
+
+        return inputs
+
+    def CalcGradient(self, target=None, tapes=None, resetgrad=False):
         if tapes is None:
             tapes = self.gradient_tape
-        tapes = dict(sorted(tapes.items(), key = lambda x : x[1][2]))
+        tapes = dict(sorted(tapes.items(), key=lambda x: x[1][2]))
 
         if target is not None:
             target_ind = [i for i, j in enumerate([i == target for i in list(tapes)]) if j][0]
             tapes_dict = dict()
             [tapes_dict.update(i) for i in [{i[0]: i[1]} for i in tapes.items()][0:target_ind + 1]]
             tapes = dict(reversed(tapes_dict.items()))
-        else :
+        else:
             tapes = dict(reversed(tapes.items()))
 
         def as_array(x):
@@ -130,6 +151,7 @@ class GradientTape():
             gx_list = func.backward(*gy_list)
             if not isinstance(gx_list, tuple):
                 gx_list = (gx_list,)
+            inputs = self.unlist(inputs)
 
             for x, gx in zip(inputs, gx_list):
                 if x.grad is None:
@@ -140,14 +162,21 @@ class GradientTape():
                 self.resetgrads()
 
     def resetgrads(self):
-        for i in list(self.gradient_tape.keys()):
-            i.grad = None
+        tapes = self.gradient_tape
+        for tape in tapes.items():
+            outputs = tape[0]
+            inputs = tape[1][1]
+            if isinstance(outputs, Variable):
+                outputs = [outputs]
+            inputs = self.unlist(inputs)
 
-        for i in list(self.gradient_tape.values()):
-            for j in i[1]:
-                j.grad = None
+            for x in inputs:
+                x.grad = None
 
-    def jacobian(self, target = None, tapes = None, var = None, var_return = 'Variable'):
+            for x in outputs:
+                x.grad = None
+
+    def jacobian(self, target=None, tapes=None, var=None, var_return='Variable'):
         if tapes is None:
             tapes = self.gradient_tape.copy()
         tapes = dict(sorted(tapes.items(), key=lambda x: x[1][2]))
@@ -157,8 +186,9 @@ class GradientTape():
             tapes_dict = dict()
             [tapes_dict.update(i) for i in [{i[0]: i[1]} for i in tapes.items()][0:target_ind + 1]]
             tapes = dict(reversed(tapes_dict.items()))
-        else :
+        else:
             tapes = dict(reversed(tapes.items()))
+
         def as_array(x):
             if np.isscalar(x):
                 return np.array(x)
@@ -171,10 +201,11 @@ class GradientTape():
             if isinstance(x, Variable):
                 return x
             return Variable(x)
+
         if len(list(tapes.keys())[0].data.shape) >= 2:
             i_max = list(tapes.keys())[0].data.shape[0]
             j_max = list(tapes.keys())[0].data.shape[1]
-        else :
+        else:
             i_max = 1
             j_max = 1
 
@@ -188,7 +219,6 @@ class GradientTape():
                     generation = tape[1][2]
                     inputs = tape[1][1]
                     func = tape[1][0]
-
 
                     if isinstance(outputs, Variable):
                         outputs = [outputs]
@@ -205,6 +235,7 @@ class GradientTape():
                     gx_list = func.backward(*gy_list)
                     if not isinstance(gx_list, tuple):
                         gx_list = (gx_list,)
+                    inputs = self.unlist(inputs)
                     for x, gx in zip(inputs, gx_list):
                         if x.grad is None:
                             x.grad = gx
@@ -227,5 +258,5 @@ class GradientTape():
             return selected_jacobian
         if var_return == 'Variable':
             return [as_variable(x) for x in selected_jacobian]
-        else :
+        else:
             raise Exception('var_return only accpet "numpy", "list" or "Variable"')

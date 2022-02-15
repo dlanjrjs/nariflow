@@ -1,6 +1,9 @@
 import numpy as np
 import pandas as pd
-import cupy as cp
+try:
+   import cupy as cp
+except Exception as e:
+   print(e)
 
 from .. import Variable
 from .. import optimizer
@@ -114,6 +117,35 @@ class GradientStartFunction():
             result_3 = result_2 * x
         tape_2.CalcGradient()
         return x.grad.data, k.grad.data
+
+class LinalgFunction():
+    def linalg_concat_test(self):
+        x = Variable(np.array([[[3.0, 2.0, 1.0]], [[6., 5., 4.]]]))
+        y = Variable(np.array([[[1.0, 2.0, 3.0]], [[4., 5., 6.]]]))
+        k = Variable(np.array([[[1.0, 2.0, 5.0]], [[7., 8., 9.]]]))
+
+        with GradientTape() as tape:
+            d = x * y
+            concats = f.linalg.flowconcat([k, d])
+            result = concats * concats
+
+        tape.CalcGradient()
+
+        return concats.grad.data, k.grad.data, d.grad.data, x.grad.data, y.grad.data
+
+    def linalg_stack_test(self):
+        x = Variable(np.array([[[3.0, 2.0, 1.0]], [[6., 5., 4.]]]))
+        y = Variable(np.array([[[1.0, 2.0, 3.0]], [[4., 5., 6.]]]))
+        k = Variable(np.array([[[1.0, 2.0, 5.0]], [[7., 8., 9.]]]))
+
+        with GradientTape() as tape:
+            d = x * y
+            concats = f.linalg.flowstack([k, d])
+            result = concats * concats
+
+        tape.CalcGradient()
+
+        return concats.grad.data, k.grad.data, d.grad.data, x.grad.data, y.grad.data
 
 class TestAnswer():
 
@@ -287,6 +319,46 @@ class TestAnswer():
 
         return answer
 
+    def linalg_concat_test(self):
+        a = np.array([[[2., 4., 10.]],
+                      [[14., 16., 18.]],
+                      [[6., 8., 6.]],
+                      [[48., 50., 48.]]])
+
+        b = np.array([[[2., 4., 10.]],
+                      [[14., 16., 18.]]])
+
+        c = np.array([[[6., 8., 6.]],
+                      [[48., 50., 48.]]])
+
+        d = np.array([[[6., 16., 18.]],
+                      [[192., 250., 288.]]])
+
+        e = np.array([[[18., 16., 6.]],
+                      [[288., 250., 192.]]])
+
+        return a, b, c, d, e
+
+    def linalg_stack_test(self):
+        a = np.array([[[[2., 4., 10.]],
+                       [[14., 16., 18.]]],
+                      [[[6., 8., 6.]],
+                       [[48., 50., 48.]]]])
+
+        b = np.array([[[2., 4., 10.]],
+                      [[14., 16., 18.]]])
+
+        c = np.array([[[6., 8., 6.]],
+                      [[48., 50., 48.]]])
+
+        d = np.array([[[6., 16., 18.]],
+                      [[192., 250., 288.]]])
+
+        e = np.array([[[18., 16., 6.]],
+                      [[288., 250., 192.]]])
+
+        return a, b, c, d, e
+
 
 class UnitTest():
     def __init__(self):
@@ -297,6 +369,7 @@ class UnitTest():
         self.order_preset = OrderFunction()
         self.start_preset = GradientStartFunction()
         self.answer_preset = TestAnswer()
+        self.linalg_preset = LinalgFunction()
 
     def data_preprocessing(self):
         def norm(x):
@@ -334,15 +407,17 @@ class UnitTest():
         return X, y
 
     def answer_correction(self, function, answer, pred, tor):
-        if len(np.array(answer).shape) > 1:
-            answer = [i.reshape(j.shape) for i, j in zip(answer, pred)]
-        if np.all(np.abs(answer) - np.abs(pred) < tor):
+        answer = [np.abs(i.reshape(j.shape)) for i,j in zip(answer, pred)]
+        pred = [np.abs(x) for x in pred]
+        loss = [np.abs(i - j) for i,j in zip(answer, pred)]
+        loss = np.array([i.sum() for i in loss])
+        if np.all(loss < tor):
             print(function, ' : ok')
-        else:
+        else :
             print(function, ' : Failed')
-            print('answer :', np.abs(answer))
-            print('pred :', np.abs(pred))
-            print('error :', np.abs(answer) - np.abs(pred))
+            print('answer :', answer)
+            print('pred :', pred)
+            print('error :', loss)
 
     def preset_test(self, tor=0.01, function=None, x=None, y=None):
         try:
@@ -451,6 +526,18 @@ class UnitTest():
         except Exception as e:
             print(f'{function} is failed :', e)
 
+    def linalg_test(self, tor=0.01):
+        try:
+            linalg_function = self.linalg_preset
+            function_list = [i for i in linalg_function.__dir__() if not i.startswith('_')]
+            for function in function_list:
+                current_function = linalg_function.__getattribute__(function)
+                preds = current_function()
+                answers = self.answer_preset.__getattribute__(function)()
+                self.answer_correction(function, answers, preds, tor)
+        except Exception as e:
+            print(f'{function} is failed :', e)
+
     def modeling_test(self, tor=1e-7, end_iter=4):
         try:
             X, y = self.data_preprocessing()
@@ -495,4 +582,5 @@ class UnitTest():
         self.matrix_test()
         self.jacobian_test()
         self.gradient_start_index_test()
+        self.linalg_test()
         self.modeling_test()
