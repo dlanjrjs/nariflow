@@ -8,7 +8,8 @@ with open(path, mode = 'r') as f:
     if conf == 'tape':
         from ..core.core_tape import Variable, Function, GradientTape
 import numpy as np
-from ..core.shape_function import reshape, sumto
+from ..core.shape_function import reshape, sumto, broadcast_to, transpose
+from ..core.elementary_function import matmul
 
 class Concatenate(Function):
     def __init__(self, axis=None):
@@ -64,6 +65,8 @@ class Outer(Function):
 
     def forward(self, x1, x2):
         y = []
+        if len(x1.shape) > 2 | len(x2.shape) > 2:
+            raise Exception('Variable must not exceed tensor dimension over 2')
         for i, j in zip(x1, x2):
             y.append(np.outer(i, j))
         return np.array(y)
@@ -111,3 +114,41 @@ class DiagonalMat(Function):
 
 def diagonal(x):
     return DiagonalMat()(x)
+
+class EigenVec(Function):
+
+    def forward(self, x):
+        self.eigval, self.eigvec = np.linalg.eig(x)
+        return self.eigvec
+
+    def backward(self, gy):
+        x = self.input_list[0]
+        second_term = diagonal(self.eigval) - x
+        for num, vec in enumerate(self.eigvec):
+            vec = broadcast_to(vec, second_term.shape())
+            geigvec = outer(vec, second_term)
+            if num == 0:
+                stack_var = geigvec
+            else :
+                stack_var = flowconcat([stack_var, geigvec])
+        gy = broadcast_to(gy, stack_var.shape())
+        return stack_var * gy
+
+
+class EigenVal(Function):
+    def forward(self, x):
+        eigval, eigvec = np.linalg.eig(x)
+        self.eigval, self.eigvec = eigval, eigvec
+        return eigval
+
+    def backward(self, gy):
+        eigvec = Variable(self.eigvec)
+        geigval = outer(eigvec, eigvec)
+        gy = broadcast_to(gy, eigvec.shape())
+        return geigval * gy
+
+def eigvec(x):
+    return EigenVec()(x)
+
+def eigval(x):
+    return EigenVal()(x)
