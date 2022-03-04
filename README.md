@@ -6,6 +6,7 @@
 
 1) 레퍼런스에선 다루지 않는, 현재 [텐서플로우](https://www.tensorflow.org/)에서 활용하고 있는 [GradientTape](https://www.tensorflow.org/guide/advanced_autodiff?hl=ko)을 도입하여 더 효율적인 자동미분이 가능하도록 했습니다.
 2) 레퍼런스에선 다루지 않는 [야코비 행렬 출력](https://www.tensorflow.org/guide/advanced_autodiff?hl=ko#%EC%95%BC%EA%B3%A0%EB%B9%84%EC%95%88) / 헤쎄 행렬 계산 기능을 추가했습니다.
+3) 레퍼런스에선 다루지 않는 선형대수 관련 기능들을 추가했습니다(Stack, Concat, Outer Product, Eigen Decomposition)
 
 # Installtion
 
@@ -48,3 +49,6 @@ pip install git+https://github.com/dlanjrjs/nariflow.git
 - LSTM
 4. Model
 - Transformer, Bert
+5. Linear Algebra
+- QR Decomposition
+- SVD Decomposition
