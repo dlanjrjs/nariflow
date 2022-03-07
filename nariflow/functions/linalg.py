@@ -10,6 +10,7 @@ with open(path, mode = 'r') as f:
 import numpy as np
 from ..core.shape_function import reshape, sumto, broadcast_to, transpose
 from ..core.elementary_function import matmul
+from . import math
 
 class Concatenate(Function):
     def __init__(self, axis=None):
@@ -152,3 +153,107 @@ def eigvec(x):
 
 def eigval(x):
     return EigenVal()(x)
+
+
+class TriangleLow(Function):
+    def __init__(self, k):
+        if k is not None:
+            self.k = k
+        else:
+            self.k = 0
+
+    def forward(self, x):
+        y = np.tril(x, k=self.k)
+        return y
+
+    def backward(self, gy):
+        return gy
+
+def trilower(x):
+    return TriangleLow()(x)
+
+class CopyLowtoUpper(Function):
+    def forward(self, x):
+        y = np.tril(x)
+        y_lower = np.tril(x, k=-1)
+        y = y + np.transpose(y_lower)
+        return y
+
+    def backward(self, gy):
+        return gy
+
+def copyltu(x):
+    return CopyLowtoUpper()(x)
+
+class Symmetric(Function):
+
+    def forward(self, x):
+        y = (1 / 2) * (x + np.transpose(x))
+        return y
+
+    def backward(self, gy):
+        return gy
+
+def symmetric(x):
+    return Symmetric()(x)
+
+
+class MatrixInv(Function):
+    def forward(self, x):
+        self.cholesky = np.linalg.cholesky(x)
+        y = np.linalg.inv(self.cholesky)
+        return y
+
+    def backward(self, gy):
+        x = self.input_list[0]
+        Lt = transpose(matinv(self.cholesky))
+        gx = -2 * trilower(matmul(x, matmul(symmetric(gy), Lt)))
+        return gx
+
+def matinv(x):
+    return MatrixInv()(x)
+
+
+class CholeskyDecomp(Function):
+    def forward(self, x):
+        y = np.linalg.cholesky(x)
+        self.cholesky = y
+        return y
+
+    def backward(self, gy):
+        cholesky = Variable(self.cholesky)
+        cholesky_transpose = transpose(cholesky)
+        cholesky_inverse = matinv(cholesky)
+        cholesky_inverse_transpose = transpose(cholesky_inverse)
+        gx = (1 / 2) * matmul(cholesky_inverse_transpose,
+                                  matmul(copyltu(matmul(cholesky_transpose, gy)),
+                                         cholesky_inverse))
+        return gx
+
+def cholesky(x):
+    return CholeskyDecomp()(x)
+
+
+class LQDecomp(Function):
+    def forward(self, x):
+        # There's no LQDecomp in numpy
+        Q, L = np.linalg.LQDecomp(x)
+        self.Q = Q
+        self.L = L
+        return Q, L
+
+    def backward(self, gy):
+        gx_Q = gy[0]
+        gx_L = gy[1]
+        L = Variable(self.L)
+        Q = Variable(self.Q)
+        L_transpose = transpose(L)
+        L_transpose_inverse = matinv(L_transpose)
+        Q_transpose = transpose(Q)
+        M = matmul(L_transpose, gx_L) - matmul(gx_Q, Q_transpose)
+        gx = matmul(L_transpose_inverse, gx_Q + matmul(copyltu(M), Q))
+        return gx
+
+def _lqdecomp(x):
+    return LQDecomp()(x)
+
