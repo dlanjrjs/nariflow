@@ -257,3 +257,50 @@ class LQDecomp(Function):
 def _lqdecomp(x):
     return LQDecomp()(x)
 
+
+class SVDecomp(Function):
+    def __init__(self, eta):
+        self.eta = eta
+
+    def hfunc(self, x, eta):
+        eta_mat = np.broadcast_to(np.array(eta), shape=x.shape())
+        return math.flowmax([math.flowabs(x).data, eta_mat], axis=0) * (
+                math.sign(x) + eta)
+
+    def forward(self, x):
+        y = np.linalg.svd(x, full_matrices = False)
+        self.U = y[0]
+        self.S = y[1]
+        self.V = y[2]
+        return Variable(y)
+
+    def backward(self, gy):
+        gx_U = gy[0]
+        gx_S = diagonal(gy[1])
+        gx_V = gy[2]
+        U = Variable(self.U)
+        S = diagonal(Variable(self.S))
+        S_reduced = diagonal(S)
+        V = Variable(self.V)
+
+        G_1 = matmul(gx_U, transpose(U)) + (
+                    matmul(matinv(S),
+                           matmul(gx_V,
+                                  matmul(transpose(V), S))))
+
+        indicate = Variable(np.ones(G_1.shape())) - Variable(np.identity(G_1.shape()[0]))
+        h = broadcast_to(S_reduced, shape=(S_reduced.shape()[-1],
+                                           S_reduced.shape()[-1]))
+        E = indicate / (self.hfunc(h - reshape(S_reduced, [-1, 1]), eta = self.eta) * (
+                        self.hfunc(h + reshape(S_reduced, [-1, 1]), eta = self.eta)))
+
+        G_2_b = matmul(matinv(S), matmul(gx_V, transpose(V)))
+        identity = diagonal(diagonal(G_2_b))
+        G_2 = gx_S + 2 * matmul(symmetric(G_1 * E), S) - identity
+
+        gx_1 = matmul(matinv(S), gx_V)
+        gx = matmul(transpose(U), matmul(G_2, V) + gx_1)
+        return gx
+
+def svd(x, eta = 1e-8):
+    return SVDecomp(eta)(x)

@@ -98,3 +98,19 @@ class Min(Function):
 
 def flowmin(x, axis = None):
     return Min(axis)(x)
+
+class Absolute(Function):
+    def forward(self, x):
+        y = np.abs(x)
+        return y
+    def backward(self, gy):
+        x = self.input_list[0]
+        if x.data < 0:
+            return -1 * gy
+        elif x.data > 0:
+            return 1 * gy
+        else :
+            raise Exception("Absolute value Couldn't define derivative at zero")
+
+def flowabs(x):
+    return Absolute()(x)

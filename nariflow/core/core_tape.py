@@ -39,8 +39,7 @@ class Function():
         y_list = self.forward(*x_list)
         if not isinstance(y_list, tuple):
             y_list = (y_list,)
-
-        output_list = [Variable(as_array(y)) for y in y_list]
+        output_list = [as_variable(as_array(y)) for y in y_list]
         generation = np.max([i.generation for i in inputs])
         for output in output_list:
             output.set_generation(generation)
@@ -144,7 +143,10 @@ class GradientTape():
 
             for j in outputs:
                 if j.grad is None:
-                    j.grad = Variable(np.ones_like(j.data))
+                    if isinstance(j.data, tuple):
+                        j.grad = Variable([np.ones_like(x) for x in j.data])
+                    else :
+                        j.grad = Variable(np.ones_like(j.data))
 
             gy_list = [output.grad for output in outputs]
             func.input_list = inputs
