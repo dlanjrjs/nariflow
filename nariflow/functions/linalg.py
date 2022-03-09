@@ -304,3 +304,20 @@ class SVDecomp(Function):
 
 def svd(x, eta = 1e-8):
     return SVDecomp(eta)(x)
+
+class Norm(Function):
+    def __init__(self, ord):
+        self.ord = ord
+
+    def forward(self, x):
+        y = np.linalg.norm(x, ord=self.ord)
+        self.y = y
+        return y
+
+    def backward(self, gy):
+        x = self.input_list[0]
+        gx = ((math.flowabs(x) / self.y) ** (self.ord - 1)) * math.sign(x) * gy
+        return gx
+
+def norm(x, ord = 2):
+    return Norm(ord)(x)
