@@ -275,9 +275,9 @@ class SVDecomp(Function):
         return Variable(y)
 
     def backward(self, gy):
-        gx_U = gy[0]
+        gx_U = gy[2]
         gx_S = diagonal(gy[1])
-        gx_V = gy[2]
+        gx_V = gy[0]
         U = Variable(self.U)
         S = diagonal(Variable(self.S))
         S_reduced = diagonal(S)

@@ -109,8 +109,11 @@ class GetItem(Function):
     # 역전파 : 입력 크기와 슬라이싱 정보를 역함수인 GetItemGrad에 전달한다.
     def backward(self, gy):
         x = self.input_list[0]
-        f = GetItemGrad(self.slices, x.data.shape)
-        return f(gy)
+        if not isinstance(x.data, (tuple, list)):
+            f = GetItemGrad(self.slices, x.data.shape)
+            return f(gy)
+        else :
+            return gy
 
 def get_item(x, slices):
     return GetItem(slices)(x)

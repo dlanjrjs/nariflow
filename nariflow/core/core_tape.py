@@ -1,7 +1,6 @@
 import numpy as np
 import weakref
 
-
 class Variable():
     def __init__(self, data):
         self.data = data
@@ -91,6 +90,10 @@ class GradientTape():
 
     def unlist_inputs(self, x):
         input_list = list()
+        if hasattr(x, 'data') == False:
+            return x
+        if isinstance(x.data, (tuple, dict)):
+            return x
         if len(np.array(x.data).shape) == 0:
             return x
         else:
@@ -150,16 +153,28 @@ class GradientTape():
 
             gy_list = [output.grad for output in outputs]
             func.input_list = inputs
+
             gx_list = func.backward(*gy_list)
             if not isinstance(gx_list, tuple):
                 gx_list = (gx_list,)
             inputs = self.unlist(inputs)
 
             for x, gx in zip(inputs, gx_list):
-                if x.grad is None:
-                    x.grad = gx
-                else:
-                    x.grad = x.grad + gx
+                if isinstance(x.data, (tuple, dict)):
+                    if x.grad is None:
+                        x.grad = gx
+                    else :
+                        if isinstance(x.grad, Variable):
+                            grad = [x.grad]
+                        if isinstance(x.grad, tuple):
+                            grad = list(x.grad)
+                        grad.append(gx)
+                        x.grad = tuple(grad)
+                else :
+                    if x.grad is None:
+                        x.grad = gx
+                    else:
+                        x.grad = x.grad + gx
             if resetgrad:
                 self.resetgrads()
 
@@ -239,10 +254,21 @@ class GradientTape():
                         gx_list = (gx_list,)
                     inputs = self.unlist(inputs)
                     for x, gx in zip(inputs, gx_list):
-                        if x.grad is None:
-                            x.grad = gx
-                        else:
-                            x.grad = x.grad + gx
+                        if isinstance(x.data, (tuple, dict)):
+                            if x.grad is None:
+                                x.grad = gx
+                            else :
+                                if isinstance(x.grad, Variable):
+                                    grad = [x.grad]
+                                if isinstance(x.grad, tuple):
+                                    grad = list(x.grad)
+                                grad.append(gx)
+                                x.grad = tuple(grad)
+                        else :
+                            if x.grad is None:
+                                x.grad = gx
+                            else:
+                                x.grad = x.grad + gx
                         temp_dict[x] = x.grad.data
                 self.resetgrads()
                 jacobian_dict_j[jacobian_iter_j] = temp_dict

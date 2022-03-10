@@ -436,28 +436,29 @@ class UnitTest():
                 self.answer_correction(function, answer, pred, tor)
                 tape.resetgrads()
         except Exception as e:
-            print(f'matrix_order_test_{order} is failed :', e)
+            print(f'preset_function_test is failed :', e)
 
     def high_order_test(self, orders=2):
-        try:
-            x = Variable(np.array(2.0))
-            y = Variable(np.array(2.0))
-            order_function = self.order_preset.high_order_function
-            tape_dict = dict()
-            with GradientTape() as tape:
-                f = order_function(x, y)
-            tape_dict[0] = tape
-            for order in range(orders):
-                with GradientTape() as tape_1:
-                    tape_dict[order].CalcGradient()
-                tape_dict[order + 1] = tape_1
-                pred = (x.grad.data, y.grad.data)
-                tape_dict[order].resetgrads()
-                answer = self.answer_preset.high_order_function(order)
-                self.answer_correction(f'high_order_test_{order}', answer, pred, 0.01)
-                tape.resetgrads()
-        except Exception as e:
-            print(f'matrix_order_test_{order} is failed :', e)
+        #try:
+        x = Variable(np.array(2.0))
+        y = Variable(np.array(2.0))
+        order_function = self.order_preset.high_order_function
+        tape_dict = dict()
+        with GradientTape() as tape:
+            f = order_function(x, y)
+        tape_dict[0] = tape
+        for order in range(orders):
+            with GradientTape() as tape_1:
+                tape_dict[order].CalcGradient()
+            tape_dict[order + 1] = tape_1
+            pred = (x.grad.data, y.grad.data)
+            tape_dict[order].resetgrads()
+            answer = self.answer_preset.high_order_function(order)
+            answer = [np.array(i) for i in answer]
+            self.answer_correction(f'high_order_test_{order}', answer, pred, 0.01)
+            tape.resetgrads()
+        #except Exception as e:
+        #    print(f'high_order_test_{order} is failed :', e)
 
     def matrix_test(self, orders=3):
         try:
@@ -503,10 +504,10 @@ class UnitTest():
                             tape.jacobian(var=v, var_return='numpy'),
                             tape.jacobian(var=k, var_return='numpy'))
                 answer = self.answer_preset.__getattribute__(function)()
-                self.answer_correction(function, answer, pred, tor)
+                self.answer_correction(f'jacobian_{function}', answer, pred, tor)
                 tape.resetgrads()
         except Exception as e:
-            print(f'matrix_order_test_{order} is failed :', e)
+            print(f'jacobian_test is failed :', e)
 
     def gradient_start_index_test(self, tor=0.01, x=None, v=None, k=None):
         try:
@@ -524,7 +525,7 @@ class UnitTest():
                 answer = self.answer_preset.__getattribute__(function)()
                 self.answer_correction(function, answer, pred, tor)
         except Exception as e:
-            print(f'{function} is failed :', e)
+            print(f'gradient_{function} is failed :', e)
 
     def linalg_test(self, tor=0.01):
         try:
@@ -536,7 +537,7 @@ class UnitTest():
                 answers = self.answer_preset.__getattribute__(function)()
                 self.answer_correction(function, answers, preds, tor)
         except Exception as e:
-            print(f'{function} is failed :', e)
+            print(f'linalg_{function} is failed :', e)
 
     def modeling_test(self, tor=1e-7, end_iter=4):
         try:
