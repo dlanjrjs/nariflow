@@ -121,9 +121,9 @@ class GradientTape():
             target_ind = [i for i, j in enumerate([i == target for i in list(tapes)]) if j][0]
             tapes_dict = dict()
             [tapes_dict.update(i) for i in [{i[0]: i[1]} for i in tapes.items()][0:target_ind + 1]]
-            tapes = dict(reversed(tapes_dict.items()))
+            tapes = dict(reversed(list(tapes_dict.items())))
         else:
-            tapes = dict(reversed(tapes.items()))
+            tapes = dict(reversed(list(tapes.items())))
 
         def as_array(x):
             if np.isscalar(x):
@@ -202,9 +202,9 @@ class GradientTape():
             target_ind = [i for i, j in enumerate([i == target for i in list(tapes)]) if j][0]
             tapes_dict = dict()
             [tapes_dict.update(i) for i in [{i[0]: i[1]} for i in tapes.items()][0:target_ind + 1]]
-            tapes = dict(reversed(tapes_dict.items()))
+            tapes = dict(reversed(list(tapes_dict.items())))
         else:
-            tapes = dict(reversed(tapes.items()))
+            tapes = dict(reversed(list(tapes.items())))
 
         def as_array(x):
             if np.isscalar(x):
