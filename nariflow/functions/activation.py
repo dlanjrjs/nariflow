@@ -35,6 +35,19 @@ def softmax(x, axis = 1):
     return y
 
 
+class Tanh(Function):
+    def forward(self, x):
+        y = np.tanh(x)
+        return y
+
+    def backward(self, gy):
+        y = self.input_list[0]  # weakref
+        gx = gy * (1 - y * y)
+        return gx
+
+
+def tanh(x):
+    return Tanh()(x)
 
 
 

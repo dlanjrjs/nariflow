@@ -27,6 +27,15 @@ class Variable():
     def resetgrad(self):
         self.grad = None
 
+    def shape(self):
+        return self.data.shape
+
+    def dtype(self):
+        return self.data.dtype
+
+    def __len__(self):
+        return len(self.data)
+
 class Function():
     """
     # Function 껍데기 함수의 역할
