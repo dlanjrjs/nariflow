@@ -27,6 +27,7 @@ pip install git+https://github.com/dlanjrjs/nariflow.git
 # 구현된 기능
 
 1. Core
+- TapeGradient
 - Jacobian
 - StopGradient
 2. Function
@@ -38,6 +39,14 @@ pip install git+https://github.com/dlanjrjs/nariflow.git
 - Adam
 4. Layer
 - Linear(텐서플로우 Dense)
+5. Linear Algebra
+ - SVD Decomposition
+ - Eigen Decomposition
+ - Cholesky Decompsition
+ - LQ Decomposition
+ - 모든 행렬분해는 역전파 수행 가능
+6. Layer
+ - SimpleRNN
 
 # 앞으로 구현할 기능
 1. Function
@@ -46,9 +55,11 @@ pip install git+https://github.com/dlanjrjs/nariflow.git
 - RectifiedADAM
 3. Layer
 - SimpleRNN
-- LSTM
 4. Model
 - Transformer, Bert
-5. Linear Algebra
-- QR Decomposition
-- SVD Decomposition
+
+# Reference
+
+M. Seeger et.al, "Auto-Differentiating Linear Algebra", 2019-08-15, https://arxiv.org/pdf/1710.08717.pdf
+Magnus, Jan R. “On Differentiating Eigenvalues and Eigenvectors.” Econometric Theory 1, no. 2 (1985): 179–91. http://www.jstor.org/stable/3532409.
+William W. Cohen, "Automatic Reverse-Mode Differentiation: Lecture Notes", 2016-08-17, http://www.cs.cmu.edu/~wcohen/10-605/notes/autodiff.pdf
