@@ -8,6 +8,8 @@ class Variable():
         ## 현재 변수의 gradient값을 연산한다(func.backward() gy와 backward 결과값간 곱을 수행한다.) -> gx_list
         ## 현재 변수의 gradient값을 저장한다(gx_list -> 각 Variable.grad 에 저장)
         ## 현재 변수의 세대를 저장한다.(self.generation)"""
+
+
     def __init__(self, data):
         self.data = data
         self.grad = None

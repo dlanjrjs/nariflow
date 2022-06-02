@@ -65,7 +65,10 @@ class SumTo(Function):
     def forward(self, x):
         # 원본 모양을 기억한다.
         # sum_to 함수로 모양을 바꾸며 합을 실시한다.
-        y = sum_to(x, self.shape)
+        if isinstance(self.shape, tuple):
+            y = sum_to(x, self.shape)
+        else :
+            y = sum_to(x, self.shape())
         return y
 
     def backward(self, gy):
