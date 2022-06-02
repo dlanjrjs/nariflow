@@ -47,6 +47,7 @@ pip install git+https://github.com/dlanjrjs/nariflow.git
  - 모든 행렬분해는 역전파 수행 가능
 6. Layer
  - SimpleRNN
+ - Convolutional Neural Network(CNN)
 
 # 앞으로 구현할 기능
 1. Function
