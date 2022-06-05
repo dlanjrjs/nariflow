@@ -13,8 +13,12 @@ from ..models import Model
 from .. import functions as f
 from ..core import elementary_function as ef
 from ..core import shape_function as sf
+from . import DataSet
 
 import tensorflow as tf
+from tensorflow.keras import datasets
+from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
+import matplotlib.pyplot as plt
 
 import time
 
@@ -33,6 +37,55 @@ class Models(Model):
         y = self.l3(y)
         return y
 
+class clf_Models(Model):
+    def __init__(self, hidden_size, out_size):
+        super().__init__()
+        self.l1 = layer.Linear(hidden_size, initializer_func='he_uniform')
+        self.l2 = layer.Linear(hidden_size, initializer_func='he_uniform')
+        self.l3 = layer.Linear(out_size, initializer_func='he_uniform')
+
+    def forward(self, x):
+        y = self.l1(x)
+        y = f.activation.relu(y)
+        y = self.l2(y)
+        y = f.activation.relu(y)
+        y = self.l3(y)
+        y = f.activation.softmax(y)
+        return y
+
+
+class SimpleRNN(Model):
+    def __init__(self, hidden_size, out_size):
+        super().__init__()
+        self.l1 = layer.RNN(hidden_size)
+        self.l2 = layer.Linear(out_size, initializer_func='he_uniform')
+
+    def forward(self, x):
+        y = self.l1(x)
+        y = y[-2:-1]
+        y = self.l2(y)
+        return y
+
+class CNN(Model):
+    def __init__(self):
+        super().__init__()
+        self.l1 = layer.Conv2d(64, (3,3))
+        self.l2 = layer.Conv2d(128, (2,2))
+        self.l3 = layer.Conv2d(64, (3,3))
+        self.predict = layer.Linear(10)
+        self.flatten = layer.flatten
+
+    def forward(self, x):
+        y = self.l1(x)
+        y = f.activation.relu(y)
+        y = self.l2(x)
+        y = f.activation.relu(y)
+        y = self.l3(x)
+        y = f.activation.relu(y)
+        y = self.flatten(y)
+        y = self.predict(y)
+
+        return y
 
 class TestFunction():
     def matyas(self, x, y):
@@ -364,6 +417,9 @@ class UnitTest():
     def __init__(self):
         self.dataset_path = tf.keras.utils.get_file(
             "auto-mpg.data", "http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data")
+        self.dataset_clf_path = tf.keras.utils.get_file(
+            'petfinder_mini.zip', 'http://storage.googleapis.com/download.tensorflow.org/data/petfinder-mini.zip',
+                        extract=True, cache_dir='.')
         self.jacobian_preset = JacobianFunction()
         self.function_preset = TestFunction()
         self.order_preset = OrderFunction()
@@ -405,6 +461,61 @@ class UnitTest():
         y = Variable(np.array(y).reshape([-1, 1]))
 
         return X, y
+    def data_preprocessing_clf(self):
+        def norm(x):
+            return (x - train_stats['mean']) / train_stats['std']
+
+        column_names = ['MPG', 'Cylinders', 'Displacement', 'Horsepower', 'Weight',
+                        'Acceleration', 'Model Year', 'Origin']
+        raw_dataset = pd.read_csv('datasets/petfinder-mini/petfinder-mini.csv')
+        # In the original dataset "4" indicates the pet was not adopted.
+        raw_dataset['target'] = np.where(raw_dataset['AdoptionSpeed'] == 4, 0, 1)
+        # Drop un-used columns.
+        train = raw_dataset.drop(columns=['AdoptionSpeed', 'Description'])
+        train_processing = pd.concat([pd.get_dummies(train.loc[:, train.apply(lambda x: x.dtype == 'object')]),
+                                      train.loc[:, train.apply(lambda x: x.dtype != 'object')].apply(
+                                          lambda x: (x - min(x)) / (max(x) - min(x)))],
+                                     axis=1)
+
+        X = train_processing.drop(['target'], axis=1).to_numpy()
+        y = np.array(pd.get_dummies(train_processing.loc[:, 'target']))
+
+        return X, y
+
+    def data_preprocessing_rnn(self):
+        num_data = 1000
+        dtype = np.float64
+
+        x = np.linspace(0, 2 * np.pi, num_data)
+        noise_range = (-0.05, 0.05)
+        noise = np.random.uniform(noise_range[0], noise_range[1], size=x.shape)
+        y = np.sin(x) + noise
+        y = y.astype(dtype)
+        data = y[:-1][:, np.newaxis]
+        label = y[1:][:, np.newaxis]
+
+        return data, label
+
+        return data, label
+
+    def data_preprocessing_cnn(self):
+        (train_images, train_labels), (test_images, test_labels) = datasets.mnist.load_data()
+        train_images = train_images.reshape((60000, 28, 28, 1))
+        test_images = test_images.reshape((10000, 28, 28, 1))
+        # 픽셀 값을 0~1 사이로 정규화합니다.
+        train_images, test_images = train_images / 255.0, test_images / 255.0
+
+        train_images = train_images.reshape(train_images.shape[0],
+                                            train_images.shape[3],
+                                            train_images.shape[1],
+                                            train_images.shape[2])
+
+        test_images = test_images.reshape(test_images.shape[0],
+                                          test_images.shape[3],
+                                          test_images.shape[1],
+                                          test_images.shape[2])
+
+        return train_images, train_labels, test_images, test_labels
 
     def answer_correction(self, function, answer, pred, tor):
         answer = [np.abs(i.reshape(j.shape)) for i,j in zip(answer, pred)]
@@ -578,6 +689,141 @@ class UnitTest():
         except Exception as e:
             print(f'model_training test is failed : {e}')
 
+    def modeling_test_clf(self, tor=1e-7, end_iter=4):
+        try:
+            X, y = self.data_preprocessing_clf()
+
+            lr = 0.001
+            hidden_size = 200
+            out_size = 2
+            batch_size = 50
+            loss_flow = []
+            loss_iter = 0
+
+            X = Variable(np.array(X))
+            y = Variable(y)
+
+
+            start_time = time.time()
+            model = clf_Models(hidden_size, out_size)
+            optimizers = optimizer.Adam(lr)
+            optimizers.setup(model)
+            for i in range(10000):
+                dataset = DataSet(X, y)
+                dataset.batch_setup(batch_size)
+                for j in range(np.ceil((len(dataset) / batch_size)).astype('int')):
+                    X_set, y_set = next(dataset)
+
+                    with GradientTape() as tape:
+                        y_pred = model(X_set)
+                        loss = f.loss.categorical_crossentropy(y_set, y_pred)
+                    tape.CalcGradient()
+                    optimizers.update()
+
+                loss_flow.append(loss.data)
+                if (loss_iter > end_iter):
+                    if (abs(loss_flow[loss_iter - 1]) - (
+                            abs(loss_flow[loss_iter]))) < tor:
+                        print('loss_value :', [float(i) for i in loss_flow])
+                        print('model is under local minima, Attempt to retry..')
+                        self.modeling_test_clf()
+                        break
+                    else:
+                        print('loss_value :', [float(i) for i in loss_flow])
+                        print('clf model training test : ok')
+                        break
+                loss_iter += 1
+        except Exception as e:
+            print(f'clf model_training test is failed : {e}')
+
+    def modeling_test_rnn(self, tor=1e-7, end_iter=4):
+        try:
+            X, y = self.data_preprocessing_rnn()
+
+            step = 10
+            lr = 0.001
+            loss_flow = []
+            loss_iter = 0
+
+            start_time = time.time()
+            model = SimpleRNN(100, 1)
+            optimizers = optimizer.SGD()
+            optimizers.setup(model)
+            for i in range(10000):
+                for teps in range(len(X) - step - 1):
+                    with GradientTape() as tape:
+                        y_pred = model(X[teps: teps + step])
+                        loss = f.loss.mean_squared_error(y_pred, y[(teps + 1) + step])
+
+                    tape.CalcGradient()
+                    optimizers.update()
+
+                loss_flow.append(loss.data)
+                if (loss_iter > end_iter):
+                    if (abs(loss_flow[loss_iter - 1]) - (
+                            abs(loss_flow[loss_iter]))) < tor:
+                        print('loss_value :', [float(i) for i in loss_flow])
+                        print('model is under local minima, Attempt to retry..')
+                        self.modeling_test_rnn()
+                        break
+                    else:
+                        print('loss_value :', [float(i) for i in loss_flow])
+                        y_pred = list()
+                        for teps in range(int(len(X) - step)):
+                            y_pred.append(model(X[teps: teps + step]).data)
+                        plt.plot(np.squeeze(np.squeeze(y_pred)))
+                        plt.plot(np.squeeze(X))
+                        print('RNN model training test : ok')
+                        break
+                loss_iter += 1
+        except Exception as e:
+            print(f'RNN model_training test is failed : {e}')
+
+    def modeling_test_cnn(self, tor=1e-7, end_iter=2):
+        try:
+            X_train, y_train, X_test, y_test = self.data_preprocessing_cnn()
+
+            lr = 0.001
+            loss_flow = []
+            loss_iter = 0
+            batch_size = 100
+
+            start_time = time.time()
+            model = CNN()
+            optimizers = optimizer.Adam(lr)
+            optimizers.setup(model)
+            for i in range(10000):
+                for j in range(np.ceil((len(X_train) / batch_size)).astype('int')):
+                    train = X_train[j * batch_size: (j + 1) * batch_size]
+                    label = y_train[j * batch_size: (j + 1) * batch_size]
+
+                    with GradientTape() as tape:
+                        y_pred = model(train)
+                        loss = f.loss.softmax_cross_entropy(y_pred, label)
+
+                    tape.CalcGradient()
+                    optimizers.update()
+                print(i)
+                loss_flow.append(loss.data)
+                if (loss_iter > end_iter):
+                    if (abs(loss_flow[loss_iter - 1]) - (
+                            abs(loss_flow[loss_iter]))) < tor:
+                        print('loss_value :', [float(i) for i in loss_flow])
+                        print('model is under local minima, Attempt to retry..')
+                        self.modeling_test_cnn()
+                        break
+                    else:
+                        print('loss_value :', [float(i) for i in loss_flow])
+                        test_pred = model(X_test)
+                        print('test셋 정확도 : ', accuracy_score(np.argmax(test_pred.data, axis=-1), y_test))
+                        print('혼동행렬')
+                        print(confusion_matrix(np.argmax(test_pred.data, axis=-1), y_test))
+                        print('CNN model training test : ok')
+                        break
+                loss_iter += 1
+        except Exception as e:
+            print(f'CNN model_training test is failed : {e}')
+
     def start_testing(self):
         self.high_order_test()
         self.matrix_test()
@@ -585,3 +831,6 @@ class UnitTest():
         self.gradient_start_index_test()
         self.linalg_test()
         self.modeling_test()
+        self.modeling_test_clf()
+        self.modeling_test_rnn()
+        self.modeling_test_cnn()
